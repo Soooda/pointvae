@@ -1,9 +1,8 @@
-import argparse
 import os
+import os.path as osp
 import torch
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
-import os.path as osp
 
 from model.vae import VAE
 from data.dataset import Dataset
@@ -18,21 +17,19 @@ else:
 '''
 Parameters
 '''
-parser = argparse.ArgumentParser()
-# Overall options
-parser.add_argument("--num_epochs", type=int, default=200, help="Number of training epochs")
-parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
-parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate")
-parser.add_argument("--input_size", default=2048 * 3, help="Input image's size (W x H)")
-parser.add_argument("--hidden_size", type=int, default=400, help="Hidden layer's dimenion")
-parser.add_argument("--latent_size", type=int, default=20, help="Latent Layer's dimension")
+num_epochs = 1000
+batch_size = 32
+learning_rate = 1e-5
+input_size = 2048 * 3
+hidden_size = 400
+latent_size = 20
+class_choice = "guitar"
 
-opt = parser.parse_args()
-
-modelnet40 = Dataset(os.path.abspath("datasets/"), split="all")
-train_data = DataLoader(modelnet40, batch_size=opt.batch_size, shuffle=True, pin_memory=True)
-vae = VAE(opt.input_size, opt.hidden_size, opt.latent_size, opt.input_size).to(device)
-optimizer = torch.optim.Adam(vae.parameters(), lr=opt.learning_rate)
+modelnet40 = Dataset(os.path.abspath("datasets/"), split="all", class_choice=class_choice, random_jitter=False, random_rotate=False, random_translate=False)
+train_data = DataLoader(modelnet40, batch_size=batch_size, shuffle=True, pin_memory=True)
+vae = VAE(input_size, hidden_size, latent_size, input_size).to(device)
+optimizer = torch.optim.Adam(vae.parameters(), lr=learning_rate)
+# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
 def loss_fn(recon_x, x, mu, log_var):
     BCE = F.binary_cross_entropy(recon_x, x, reduction="sum")
@@ -40,18 +37,19 @@ def loss_fn(recon_x, x, mu, log_var):
     return BCE + KL
 
 
-for epoch in range(1, opt.num_epochs + 1):
+for epoch in range(1, num_epochs + 1):
     # Resume
     if osp.exists(osp.sep.join(("checkpoints", str(epoch) + ".pth"))):
         temp = torch.load(osp.sep.join(("checkpoints/", str(epoch) + ".pth")))
         ret = vae.load_state_dict(temp['state_dict'])
         print(ret)
         optimizer.load_state_dict(temp['optimizer'])
+        # scheduler.load_state_dict(temp['scheduler'])
         continue
 
     for data in train_data:
         inputs, _, _,  _ = data
-        inputs = inputs.view(-1, opt.input_size).to(device)
+        inputs = inputs.view(-1, input_size).to(device)
         optimizer.zero_grad()
         recon_inputs, mu, log_var = vae(inputs)
 
@@ -59,10 +57,14 @@ for epoch in range(1, opt.num_epochs + 1):
         loss = loss_fn(recon_inputs, inputs, mu, log_var)
         loss.backward()
         optimizer.step()
-    
+
+    # scheduler.step() 
     print("Epoch {:<4} Loss: {:<8.4f}".format(epoch, loss.item()))
     checkpoints = {
         'state_dict': vae.state_dict(),
         'optimizer': optimizer.state_dict(),
+        # 'scheduler': scheduler.state_dict(),
     }
+    if not os.path.exists("./checkpoints"):
+        os.mkdir("./checkpoints")
     torch.save(checkpoints, osp.sep.join(("checkpoints", str(epoch) + ".pth")))

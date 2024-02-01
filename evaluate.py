@@ -12,7 +12,7 @@ else:
     device = torch.device("cpu")
 
 
-checkpoint = osp.sep.join(("checkpoints", "31.pth"))
+checkpoint = osp.sep.join(("checkpoints", "457.pth"))
 input_size = 2048 * 3
 hidden_size = 400
 latent_size = 20
@@ -25,7 +25,7 @@ with torch.no_grad():
     ret = vae.load_state_dict(temp['state_dict'])
     print(ret)
 
-    for i in range(10):
+    for i in range(5):
         latent_sample = torch.randn(latent_size).to(device)
         generated_data = vae.decoder(latent_sample).view(2048, 3).cpu()
 
