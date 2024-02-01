@@ -195,10 +195,10 @@ if __name__ == '__main__':
     # only shapenetcorev2 and shapenetpart dataset support 'trainval' and 'val'
     split = 'train'
 
-    d = Dataset(root=root, dataset_name=dataset_name, num_points=2048, split=split)
+    d = Dataset(root=root, dataset_name=dataset_name, num_points=2048, split=split, class_choice="guitar")
     print("datasize:", d.__len__())
 
-    item = 101
+    item = 1
     ps, lb, n, f = d[item]
     print(ps.size(), ps.type(), lb.size(), lb.type(), n, f)
 
